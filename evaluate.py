@@ -183,9 +183,14 @@ def check_opts(opts):
         exists(opts.out_path, 'out dir not found!')
         assert opts.batch_size > 0
 
-def main():
+def main(model_num):
     parser = build_parser()
     opts = parser.parse_args()
+    models = ['la_muse.ckpt', 'rain_princess.ckpt', 'scream.ckpt', 'udnie.ckpt', 'wave.ckpt', 'wreck.ckpt']
+    modelname = 'models/' + models[model_num]
+    opts.in_path = 'input/File.jpg'
+    opts.out_path = 'output/File.jpg'
+
     check_opts(opts)
 
     if not os.path.isdir(opts.in_path):
@@ -208,5 +213,24 @@ def main():
             ffwd(full_in, full_out, opts.checkpoint_dir, device_t=opts.device,
                     batch_size=opts.batch_size)
 
-if __name__ == '__main__':
-    main()
+def convert_b64_string_to_bynary(s):
+    """base64をデコードする"""
+    return base64.b64decode(s.encode("UTF-8"))
+
+def lambda_handler(event, context):
+    # requestbodeyの中のjsonはeventに辞書型に変化されて保存されている
+    # なので、eventの中には {"mypng": "base64でエンコードされた文字列"}が入力される想定。
+    model_num = event['model_num']
+    base_64ed_image = event['mypng']
+    image = convert_b64_string_to_bynary(base_64ed_image)
+    dst_path = 'input/File.jpg'
+ 
+    with open(dst_path, mode='wb') as local_file:
+        local_file.write(image)
+    main(model_num)
+    
+    filename = 'output.File.jpg'
+    with open(filename, 'rb') as f:
+        image = base64.b64encode(f.read()).decode("UTF-8")
+    body = base64.b64encode(image)
+    return body
